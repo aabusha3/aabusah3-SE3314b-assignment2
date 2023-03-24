@@ -7,19 +7,22 @@ net.bytesWritten = 300000;
 net.bufferSize = 300000;
 
 const folderName = path.relative('../', './');
-let HOST = '127.0.0.1';
 //node KADpeer -p peerIP:portNum
-var PORT = singleton.getPort();
+let HOST = '127.0.0.1';
+var PORT = Math.floor(Math.random()*55500) + 1000;
 let joinOption = process.argv[2];
-
+let tempDHT;
 let peerCredentials = process.argv[3];
 let peerIP, peerPort, peerID;
 var dhtTable = [];
+
+let client = new net.Socket();
+let first = false;
+let data = false;
 //need to call SINGLETON.init() at some point to initialize all the values
 if (singleton.getTimestamp() == null){
     singleton.init();
 }
-var CLIENT_SOCK = new net.Socket();
 if (joinOption != '-p'){
     //start as a server
     //do not worry about being a client... you are the host server now
@@ -31,15 +34,17 @@ if (joinOption != '-p'){
         console.log(`This peer address is ${HOST}:${PORT} located at ${folderName} [${singleton.getPeerID(HOST, PORT)}]\n`);
     });
     
-    
-
     p2pHost.on('connection', function(sock){
         //console.log('connected to someone');
-        handleClientJoin(sock);
+        let sockAddr = `${sock.remoteAddress}:${sock.remotePort}`;
+        // console.log(sock.bytesRead)
+        // if(sock.bytesRead >= 4*4) handleSecondClientJoin(sock, sockAddr);
+        // if(sock.bytesRead < 4*4) 
+        handleClientJoin(sock, sockAddr);
     });
-    p2pHost.on('data', (data)=>{
-        // console.log('i got some data?');
-    })
+    // p2pHost.on('data', (data)=>{
+    //     // console.log('i got some data?');
+    // })
     p2pHost.on('end', function(sock){
 
     });
@@ -51,18 +56,19 @@ else{
     peerIP = t[0];
     peerPort = parseInt(t[1]);
     
-    let client = new net.Socket();
+    // let client = new net.Socket();
+    //let p2pListener = new net.createServer();
     //this.client = client;
-    setClientInformation(client);
+    //setClientInformation(client);
 
     client.connect(peerPort, peerIP, function () {
-    HOST = '127.0.0.1';
-    PORT = singleton.getPort();
+        //HOST = client.localAddress;
+        HOST = '127.0.0.1';
+        PORT = client.localPort;
     //pushBucket(dhtTable, peerCredentials);  //add the peer we are connecting to into our kbucket
     //client.write('hello');
     });
         
-    
     client.on('data', (data)=>{
         //console.log(data);
         //console.log(noNullDHT());
@@ -72,34 +78,77 @@ else{
         //if the dht table is updated, then send hello packet to all peers in the dht table
         
         //sendHello(noNullDHT());
-        client.end();
+        //client.end();
+        tempDHT = noNullDHT();
+        sendHello1(tempDHT);
+        if(first) client.end();
     } );
 
+    client.on('end', function(){
+    })
+
     client.on('close', function(){
-        sendHello(noNullDHT());
-
-        let p2pListener = net.createServer();
-        p2pListener.listen(PORT, HOST, ()=>{console.log(`${HOST}:${PORT} is now a server`)});
-
-        p2pListener.on('connection', function(sock){
-            console.log(`connected from ${sock.remoteAddress}:${sock.remotePort}`);
-            //handleClientJoin(sock);
-        });
-        p2pListener.on('data', (data)=>{
-            console.log('i got some data?');
-            handleKADPacket(data);
-        })
+        //sendHello(noNullDHT());
+        // setTimeout(() => { 
+            // tempDHT = noNullDHT();
+            // sendHello1(tempDHT);
+            
+             
+            // // setTimeout(() => { 
+                let p2pListener = net.createServer();
+                p2pListener.listen(PORT, HOST, ()=>{console.log(`${HOST}:${PORT} is now a server`)});
+        
+                p2pListener.on('connection', function(sock){
+                    //console.log(`connected from ${sock.remoteAddress}:${sock.remotePort}`);
+                    handleSecondClientJoin(sock);
+                });
+                p2pListener.on('error', (e) => {
+                    if (e.code === 'EADDRINUSE') {
+                      console.error('Address in use, retrying...');
+                      setTimeout(() => {
+                        p2pListener.close();
+                        p2pListener.listen(PORT, HOST);
+                      }, 1000);
+                    }
+                });
+            // }, 1600);
+        // }, 600);
     });
     
-    
+//    p2pListener.listen(PORT, HOST, ()=>{console.log(`${HOST}:${PORT} is now a server`)});
+
+//    p2pListener.on('connection', function(sock){
+//        console.log(`connected from ${sock.remoteAddress}:${sock.remotePort}`);
+//        //handleClientJoin(sock);
+//    });
+//    p2pListener.on('data', (data)=>{
+//        console.log('i got some data?');
+//        handleKADPacket(data);
+//    })
+
+    // if(client.destroyed || client.closed){
+    //     sendHello(noNullDHT());
+
+    //     let p2pListener = net.createServer();
+    //     p2pListener.listen(PORT, HOST, ()=>{console.log(`${HOST}:${PORT} is now a server`)});
+
+    //     p2pListener.on('connection', function(sock){
+    //         console.log(`connected from ${sock.remoteAddress}:${sock.remotePort}`);
+    //         //handleClientJoin(sock);
+    //     });
+    //     p2pListener.on('data', (data)=>{
+    //         console.log('i got some data?');
+    //         handleKADPacket(data);
+    //     })
+    // }
 
 }
 
 
 
-function setClientInformation(a){
-    CLIENT_SOCK = a;
-}
+// function setClientInformation(a){
+//     CLIENT_SOCK = a;
+// }
 
 
 
@@ -131,15 +180,14 @@ function handleKADPacket(data){
             tempArr[i] = `${ip0}.${ip8}.${ip16}.${ip24}:${portNumber}`;
             //pushBucket(dhtTable, peerAddressAndPort);
         }
-        tempArr.reverse();
         
     }
     console.log(tempArr)
 
     
-    //msgType doesnt really matter... regardless it will be added and compared to all peers in DHT table
     if (msgType == 1){
         //its a welcome message
+        tempArr.reverse();
         console.log(`Connected to ${senderName}:${peerPort} at timestamp: ${singleton.getTimestamp()}`);
         console.log(`This peer address is ${HOST}:${PORT} located at ${folderName} [${singleton.getPeerID(HOST, PORT)}]`);
         let dTable = '[]'
@@ -150,7 +198,7 @@ function handleKADPacket(data){
         console.log(`Received a welcome message from ${senderName}\n   along with DHT: ${dTable}`);
     }else if (msgType == 2){
         //its a hello message
-        pushBucket(dhtTable, tempArr[0])
+        //pushBucket(dhtTable, tempArr[0])
     }
     if (numberOfPeers > 0){
         refreshBuckets(dhtTable, tempArr);  //call the refresh buckets method with the array
@@ -187,8 +235,8 @@ function sendHello(T){
     //console.log(this.client.localPort);
     //send data to every client in your DHT table (but dont double connect to them)
     for (let i = 0; i < T.length; i++){
-        peerIP = peerCredentials.split(':')[0]
-        peerPort = peerCredentials.split(':')[1]
+        // peerIP = peerCredentials.split(':')[0]
+        // peerPort = peerCredentials.split(':')[1]
         let checkForHost = `${peerCredentials}, ${singleton.getPeerID(peerIP, peerPort)}`;
 
         if (T[i] != checkForHost){
@@ -201,11 +249,19 @@ function sendHello(T){
             pkt.init(7, 2, d.length, folderName.length, folderName, d);
             //let c = CLIENT_SOCK;
             //c.write(pkt.getBytePacket());
-            console.log(`connecting to:  ${port}`)
-            let a = net.createConnection(port, ip);
-            a.write(pkt.getBytePacket(), (err)=>{
-                a.end();
-            });
+            try{
+                let a = new net.Socket()
+                a.connect({port:port, host:ip, localAddress:HOST, localPort:PORT}, ()=>{
+                    a.write(pkt.getBytePacket(), (err)=>{
+                        a.end();
+                        console.log(`written to:  ${port}`)
+                    });
+                })
+
+             
+            } catch(e){
+                console.error(e);
+            }
             /*
             c.connect(port, ip, function(){
                 let pkt = cPTP;
@@ -223,12 +279,69 @@ function sendHello(T){
 }
 
 
-function handleClientJoin(sock){
+function sendHello1(T){
+    // let checkForHost = `${peerCredentials}, ${singleton.getPeerID(peerIP, peerPort)}`;
+
+    
+    // if (T[0] == checkForHost){
+    //     T.shift()
+    // }
+    if (T.length <= 0) return first=true;
+    console.log(T)
+    console.log(T[0])
+    //if (T[0] != checkForHost ){
+        let ipAndPort = T[0].split(",")[0];
+        let ip = ipAndPort.split(':')[0];
+        let port = parseInt(ipAndPort.split(':')[1]);
+        let pkt = cPTP;
+        let d = [];
+        d[0] = `${ip}:${port}, ${singleton.getPeerID(ip, port)}`;
+        pkt.init(7, 2, d.length, folderName.length, folderName, d);
+
+        try{
+            let a = new net.Socket()
+            // a.connect({port:port, host:ip, localAddress:HOST, localPort:PORT}, ()=>{
+            a.connect(port, ip, ()=>{
+                a.write(pkt.getBytePacket(), (err)=>{
+                    a.destroy();
+                    console.log(`written to:  ${port} :: ${T.length}`)
+                    if(T.length > 0){
+                        T.shift()
+                        sendHello1(T)
+                    }
+                    if(T.length <= 0) {
+                        first = false;
+                        console.log('all hellos sent')
+                        return client.end()
+                    }
+
+                });
+            })
+        } catch(e){
+            console.error(e);
+        }
+    //}
+    
+    console.log('Hello packet has been sent.')
+}
+
+function handleSecondClientJoin(sock, sockAddr){
+    //let sockAddr = `${sock.remoteAddress}:${sock.remotePort}`;
+    console.log(`Connected from peer ${sockAddr}`);
+
+    sock.on('data', (data)=>{
+        handleKADPacket(data);
+    })
+}
+
+function handleClientJoin(sock, sockAddr){
     //sock.localport to determine the port #?
     //or we can get it from a packet?
     //assignClientName(sock, nickNames);
     //add them to the DHT table as well.
-    let sockAddr = `${sock.remoteAddress}:${sock.remotePort}`;
+    
+
+    //let sockAddr = `${sock.remoteAddress}:${sock.remotePort}`;
     console.log(`Connected from peer ${sockAddr}`);
     //check our dht table
     //let sockID = singleton.getPeerID(sock.remoteAddress, sock.remotePort);
