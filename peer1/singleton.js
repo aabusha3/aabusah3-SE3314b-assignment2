@@ -66,7 +66,7 @@ module.exports = {
     Hex2Bin: function (hex) {
         var bin = ""
         hex.split("").forEach(str => {
-            bin += parseInt(str, 16).toString(2).padStart(8, '0')
+            bin += parseInt(str, 16).toString(2).padStart(4, '0')
         })
         return bin
     },
