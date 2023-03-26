@@ -35,7 +35,7 @@ async function myCreateServer(myPort){
     })
     server.listen(myPort, ip, ()=>{//start listening on this port
         if(joinOp != '-p') console.log(`This peer address is ${ip}:${myPort} located at ${folderName} [${singleton.getPeerID(ip, myPort)}]\n`);
-        if(joinOp == '-p') console.log(`${ip}:${myPort} is now a server`);
+        if(joinOp == '-p') console.log(`${ip}:${myPort} is now a server\n`);
     })
 }
 
@@ -233,11 +233,11 @@ function pushBucket(T, P){
         let difIndex = xor.split('1')[0].length;
 
         if (dif2.charAt(difIndex) == 0){//if new peer is closer
-            console.log(`${pIP}:${pPORT}, [${pID}] has replaced\n${T[index]} since its closer`)
+            console.log(`${pIP}:${pPORT}, [${pID}] has replaced\n${T[index]} since its closer\n`)
             T[index] = `${pIP}:${pPORT}, ${pID}`;
         }
         else if (dif1.charAt(difIndex) == 0)//if old peer is closer       
-            console.log(`${T[index]} has replaced\n${pIP}:${pPORT}, [${pID}] since its closer`);
+            console.log(`${T[index]} has replaced\n${pIP}:${pPORT}, [${pID}] since its closer\n`);
 
         else console.log(`something went wrong`);//for error handling purposes; should not be possible to reach this state
     }
