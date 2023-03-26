@@ -11,6 +11,9 @@ function timerRun() {
 }
 
 module.exports = {
+    //--------------------------
+    //init: start the counter
+    //--------------------------
     init: function() {
         timer = Math.floor(1000 * Math.random()); /* any random number */
         setInterval(timerRun, timerInterval);
@@ -33,11 +36,10 @@ module.exports = {
     },
 
     //--------------------------
-    //getrandom port > 3000
+    //getPort: return random port > 1000 and < 56500
     //--------------------------
     getPort: function() {
-        var weight = Math.floor(Math.random()*1000)+1;
-        return  Math.floor( Math.random()*weight) + 3001;
+        return Math.floor(Math.random()*55500) + 1000;
     },
 
     //--------------------------
@@ -86,6 +88,4 @@ module.exports = {
         }
         return ans;
     }
-
-
 };
